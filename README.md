@@ -1,4 +1,5 @@
 A simple volume controller written in C# and MicroPython\
-Controls application volumes using a Raspberry Pico\
+Controls application volumes using rotary encoders wired to a Raspberry Pico
 
-The wiring diagram and code can be found here: https://wokwi.com/projects/392887634654923777
+
+The wiring and code can be found here: https://wokwi.com/projects/392887634654923777
