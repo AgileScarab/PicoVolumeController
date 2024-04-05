@@ -138,7 +138,7 @@ namespace PicoVolumeController
                     if (mAudioSessions.ContainsKey(processName))
                     {
                         session = mAudioSessions[processName];
-                        if(session.State != AudioSessionState.AudioSessionStateActive) //shouldn't be necessary but for some reason is 
+                        if (session.State != AudioSessionState.AudioSessionStateActive) //shouldn't be necessary but for some reason is 
                         {
                             continue;
                         }
@@ -166,7 +166,7 @@ namespace PicoVolumeController
                 {
                     if (mAudioSessions.ContainsKey(currentActiveProcess))
                     {
-                        if (session.State != AudioSessionState.AudioSessionStateActive) //actually may be a good idea here so we dont try to change audio on an inactive state
+                        if (mAudioSessions[currentActiveProcess].State == AudioSessionState.AudioSessionStateActive) //actually may be a good idea here so we dont try to change audio on an inactive state
                         {
                             session = mAudioSessions[currentActiveProcess];
                         }
