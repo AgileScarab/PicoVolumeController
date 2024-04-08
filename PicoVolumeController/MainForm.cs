@@ -19,7 +19,7 @@ namespace PicoVolumeController
         private readonly List<string>? processGroup2;
         private string currentActiveProcess = "";
 
-        private Dictionary<string, List<AudioSessionControl2>> mAudioSessions = new();
+        private Dictionary<string, HashSet<AudioSessionControl2>> mAudioSessions = new();
 
         private readonly SettingsManager settingsManager;
 
@@ -116,7 +116,7 @@ namespace PicoVolumeController
             ProcessEncoder(e.Encoder, step);
             isProcessingData = false;
         }
-        private List<AudioSessionControl2>? GetActiveSessionList(List<string> processGroup, bool foreGround)
+        private HashSet<AudioSessionControl2>? GetActiveSessionList(List<string> processGroup, bool foreGround)
         {
             if (foreGround == true)
             {
@@ -127,12 +127,10 @@ namespace PicoVolumeController
                         if (aSession.State == AudioSessionState.AudioSessionStateActive)
                         {
                             return mAudioSessions[currentActiveProcess];
-
                         }
                     }
                 }
             }
-
             foreach (var processName in processGroup)
             {
                 if (mAudioSessions.ContainsKey(processName))
@@ -150,7 +148,7 @@ namespace PicoVolumeController
         }
         private void ProcessEncoder(int encoder, float step)
         {
-            List<AudioSessionControl2>? sessionList = null;
+            HashSet<AudioSessionControl2>? sessionList = null;
             switch (encoder)
             {
                 case 1:
@@ -169,11 +167,11 @@ namespace PicoVolumeController
                 case 3:
                     if (foregroundCheckBox.Checked)
                     {
-                        sessionList = GetActiveSessionList(processGroup2, false);
+                        sessionList = GetActiveSessionList(processGroup2, true);
                     }
                     else
                     {
-                        sessionList = GetActiveSessionList(processGroup2, true);
+                        sessionList = GetActiveSessionList(processGroup2, false);
                     }
                     break;
             }
@@ -250,7 +248,6 @@ namespace PicoVolumeController
         private void button1_Click(object sender, EventArgs e)
         {
             debugRichTextBox.Clear();
-            GC.Collect();
         }
     }
 }
