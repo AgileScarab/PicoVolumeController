@@ -1,4 +1,4 @@
-﻿using CoreAudio;
+using CoreAudio;
 using CoreAudio.Interfaces;
 using System.Diagnostics;
 
@@ -8,11 +8,11 @@ namespace PicoVolumeController.Services
     {
         private readonly MMDeviceEnumerator _enumerator;
         private MMDeviceCollection devices;
-        private Dictionary<string, List<AudioSessionControl2>> sessions;
+        private Dictionary<string, HashSet<AudioSessionControl2>> sessions;
         public AudioSessionService()
         {
             _enumerator = new MMDeviceEnumerator(Guid.Empty);
-            sessions = new Dictionary<string, List<AudioSessionControl2>>();
+            sessions = new Dictionary<string, HashSet<AudioSessionControl2>>();
             devices = _enumerator.EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active);
 
             foreach (var device in devices)
@@ -31,7 +31,7 @@ namespace PicoVolumeController.Services
                         var processname = Process.GetProcessById((int)session.ProcessID).ProcessName;
                         if (!sessions.ContainsKey(processname))
                         {
-                            sessions[processname] = new List<AudioSessionControl2>();
+                            sessions[processname] = new HashSet<AudioSessionControl2>();
                         }
                         sessions[processname].Add(session);
                         session.OnStateChanged += HandleSessionStateChanged;
@@ -43,7 +43,7 @@ namespace PicoVolumeController.Services
         private void HandleSessionStateChanged(object sender, AudioSessionState newState)
         {
             AudioSessionControl2 session = (AudioSessionControl2)sender;
-            try //sessions may not be removed properly cause CoreAudio lacks session.ProcessName
+            try
             {
                 string processName = Process.GetProcessById((int)session.ProcessID).ProcessName;
                 if (string.IsNullOrEmpty(processName))
@@ -62,20 +62,20 @@ namespace PicoVolumeController.Services
                         {
                             sessions[processName].Add(session);
                         }
-                        else if (!sessions.ContainsKey(processName))
+                        else if(!sessions.ContainsKey(processName))
                         {
-                            sessions[processName] = new List<AudioSessionControl2> { session };
+                            sessions[processName] = new HashSet<AudioSessionControl2> { session};
                         }
                         break;
                     default:
                         break;
                 }
             }
-            catch //maybe a foreach in here to forcecheck all the sessions for the changed session and remove it?
+            catch
             {
-                foreach (var key in sessions.Keys)
+                foreach(var key in sessions.Keys)
                 {
-                    switch (newState)
+                    switch(newState)
                     {
                         case AudioSessionState.AudioSessionStateInactive:
                         case AudioSessionState.AudioSessionStateExpired:
@@ -90,7 +90,7 @@ namespace PicoVolumeController.Services
         {
             AudioSessionManager2 sessionManager = (AudioSessionManager2)sender;
             newSession.GetProcessId(out uint newSessionId);
-
+            
             sessionManager.RefreshSessions();
             if (sessionManager.Sessions == null)
                 return;
@@ -99,9 +99,9 @@ namespace PicoVolumeController.Services
                 if (session.ProcessID == newSessionId)
                 {
                     var processName = Process.GetProcessById((int)session.ProcessID).ProcessName;
-                    if (!sessions.ContainsKey(processName))
+                    if(!sessions.ContainsKey(processName))
                     {
-                        sessions[processName] = new List<AudioSessionControl2>();
+                        sessions[processName] = new HashSet<AudioSessionControl2>();
                     }
                     sessions[processName].Add(session);
                     session.OnStateChanged += HandleSessionStateChanged;
@@ -110,7 +110,7 @@ namespace PicoVolumeController.Services
 
         }
 
-        public Dictionary<string, List<AudioSessionControl2>> GetAudioSessions()
+        public Dictionary<string, HashSet<AudioSessionControl2>> GetAudioSessions()
         {
             return sessions;
         }
@@ -177,4 +177,3 @@ namespace PicoVolumeController.Services
         }
     }
 }
-
