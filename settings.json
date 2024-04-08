@@ -1,0 +1,5 @@
+{
+  "port": "COM3",
+  "group1": ["firefox", "chrome", "Spotify"],
+  "group2": ["Discord"]
+}
