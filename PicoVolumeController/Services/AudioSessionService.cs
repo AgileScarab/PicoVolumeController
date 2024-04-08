@@ -8,11 +8,11 @@ namespace PicoVolumeController.Services
     {
         private readonly MMDeviceEnumerator _enumerator;
         private MMDeviceCollection devices;
-        private Dictionary<string, AudioSessionControl2> sessions;
+        private Dictionary<string, List<AudioSessionControl2>> sessions;
         public AudioSessionService()
         {
             _enumerator = new MMDeviceEnumerator(Guid.Empty);
-            sessions = new Dictionary<string, AudioSessionControl2>();
+            sessions = new Dictionary<string, List<AudioSessionControl2>>();
             devices = _enumerator.EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active);
 
             foreach (var device in devices)
@@ -29,7 +29,11 @@ namespace PicoVolumeController.Services
                     foreach (var session in device.AudioSessionManager2.Sessions)
                     {
                         var processname = Process.GetProcessById((int)session.ProcessID).ProcessName;
-                        sessions[processname] = session;
+                        if (!sessions.ContainsKey(processname))
+                        {
+                            sessions[processname] = new List<AudioSessionControl2>();
+                        }
+                        sessions[processname].Add(session);
                         session.OnStateChanged += HandleSessionStateChanged;
                     }
                 }
@@ -39,26 +43,46 @@ namespace PicoVolumeController.Services
         private void HandleSessionStateChanged(object sender, AudioSessionState newState)
         {
             AudioSessionControl2 session = (AudioSessionControl2)sender;
-            string processName = Process.GetProcessById((int)session.ProcessID).ProcessName;
-            if (string.IsNullOrEmpty(processName))
-                return;
-            switch (newState)
+            try //sessions may not be removed properly cause CoreAudio lacks session.ProcessName
             {
-                case AudioSessionState.AudioSessionStateInactive:
-                case AudioSessionState.AudioSessionStateExpired:
-                    if(sessions.ContainsKey(processName))
+                string processName = Process.GetProcessById((int)session.ProcessID).ProcessName;
+                if (string.IsNullOrEmpty(processName))
+                    return;
+                switch (newState)
+                {
+                    case AudioSessionState.AudioSessionStateInactive:
+                    case AudioSessionState.AudioSessionStateExpired:
+                        if (sessions.ContainsKey(processName))
+                        {
+                            sessions[processName].Remove(session);
+                        }
+                        break;
+                    case AudioSessionState.AudioSessionStateActive:
+                        if (sessions.ContainsKey(processName))
+                        {
+                            sessions[processName].Add(session);
+                        }
+                        else if (!sessions.ContainsKey(processName))
+                        {
+                            sessions[processName] = new List<AudioSessionControl2> { session };
+                        }
+                        break;
+                    default:
+                        break;
+                }
+            }
+            catch //maybe a foreach in here to forcecheck all the sessions for the changed session and remove it?
+            {
+                foreach (var key in sessions.Keys)
+                {
+                    switch (newState)
                     {
-                        sessions.Remove(processName);
+                        case AudioSessionState.AudioSessionStateInactive:
+                        case AudioSessionState.AudioSessionStateExpired:
+                            sessions[key].Remove(session);
+                            break;
                     }
-                    break;
-                case AudioSessionState.AudioSessionStateActive:
-                    if(!sessions.ContainsKey(processName))
-                    {
-                        sessions[processName] = session;
-                    }
-                    break;
-                default:
-                    break;
+                }
             }
         }
 
@@ -66,7 +90,7 @@ namespace PicoVolumeController.Services
         {
             AudioSessionManager2 sessionManager = (AudioSessionManager2)sender;
             newSession.GetProcessId(out uint newSessionId);
-            
+
             sessionManager.RefreshSessions();
             if (sessionManager.Sessions == null)
                 return;
@@ -74,15 +98,19 @@ namespace PicoVolumeController.Services
             {
                 if (session.ProcessID == newSessionId)
                 {
-                    var processname = Process.GetProcessById((int)session.ProcessID).ProcessName;
-                    sessions[processname] = session;
+                    var processName = Process.GetProcessById((int)session.ProcessID).ProcessName;
+                    if (!sessions.ContainsKey(processName))
+                    {
+                        sessions[processName] = new List<AudioSessionControl2>();
+                    }
+                    sessions[processName].Add(session);
                     session.OnStateChanged += HandleSessionStateChanged;
                 }
             }
 
         }
 
-        public Dictionary<string, AudioSessionControl2> GetAudioSessions()
+        public Dictionary<string, List<AudioSessionControl2>> GetAudioSessions()
         {
             return sessions;
         }

@@ -37,6 +37,9 @@
             foregroundCheckBox = new CheckBox();
             processGroup1Box = new ListBox();
             processGroup2Box = new ListBox();
+            debugCheck = new CheckBox();
+            debugRichTextBox = new RichTextBox();
+            clearButton = new Button();
             SuspendLayout();
             // 
             // startButton
@@ -101,11 +104,43 @@
             processGroup2Box.Size = new Size(207, 64);
             processGroup2Box.TabIndex = 7;
             // 
+            // debugCheck
+            // 
+            debugCheck.AutoSize = true;
+            debugCheck.Location = new Point(20, 237);
+            debugCheck.Name = "debugCheck";
+            debugCheck.Size = new Size(61, 19);
+            debugCheck.TabIndex = 8;
+            debugCheck.Text = "Debug";
+            debugCheck.UseVisualStyleBackColor = true;
+            // 
+            // debugRichTextBox
+            // 
+            debugRichTextBox.HideSelection = false;
+            debugRichTextBox.Location = new Point(97, 235);
+            debugRichTextBox.Name = "debugRichTextBox";
+            debugRichTextBox.Size = new Size(337, 79);
+            debugRichTextBox.TabIndex = 9;
+            debugRichTextBox.Text = "";
+            // 
+            // clearButton
+            // 
+            clearButton.Location = new Point(12, 272);
+            clearButton.Name = "clearButton";
+            clearButton.Size = new Size(75, 42);
+            clearButton.TabIndex = 10;
+            clearButton.Text = "Clear";
+            clearButton.UseVisualStyleBackColor = true;
+            clearButton.Click += button1_Click;
+            // 
             // MainForm
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(235, 237);
+            ClientSize = new Size(446, 342);
+            Controls.Add(clearButton);
+            Controls.Add(debugRichTextBox);
+            Controls.Add(debugCheck);
             Controls.Add(processGroup2Box);
             Controls.Add(processGroup1Box);
             Controls.Add(foregroundCheckBox);
@@ -130,5 +165,8 @@
         private CheckBox foregroundCheckBox;
         private ListBox processGroup1Box;
         private ListBox processGroup2Box;
+        private CheckBox debugCheck;
+        private RichTextBox debugRichTextBox;
+        private Button clearButton;
     }
 }

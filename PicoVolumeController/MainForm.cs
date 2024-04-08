@@ -3,6 +3,8 @@ using PicoVolumeController.Models;
 using PicoVolumeController.Services;
 using PicoVolumeController.Utils;
 using PicoVolumeController.Win32;
+using System.Linq;
+using System.Windows.Forms;
 
 namespace PicoVolumeController
 {
@@ -17,7 +19,7 @@ namespace PicoVolumeController
         private readonly List<string>? processGroup2;
         private string currentActiveProcess = "";
 
-        private Dictionary<string, AudioSessionControl2> mAudioSessions = new();
+        private Dictionary<string, List<AudioSessionControl2>> mAudioSessions = new();
 
         private readonly SettingsManager settingsManager;
 
@@ -91,22 +93,16 @@ namespace PicoVolumeController
 
         private void SerialPortService_DataReceived(object? sender, SerialData e)
         {
-
             if (isProcessingData)
             {
                 return;
             }
             isProcessingData = true;
 
-            if (e == null)
-            {
-                return;
-            }
             float step = 0;
 
             switch (e.Action)
             {
-
                 case EncoderAction.Increase:
                     step = 5.0f;
                     break;
@@ -117,92 +113,92 @@ namespace PicoVolumeController
                     step = 0;
                     break;
             }
-
-            if (e.Encoder == 1)
-            {
-                if (step != 0)
-                {
-                    sessionService.StepMasterVolume(step);
-                }
-                else
-                {
-                    sessionService.MuteUnmuteMasterVolume();
-                }
-            }
-
-            if (e.Encoder == 2)
-            {
-                AudioSessionControl2? session = null;
-                foreach (var processName in processGroup1)
-                {
-                    if (mAudioSessions.ContainsKey(processName))
-                    {
-                        session = mAudioSessions[processName];
-                        if (session.State != AudioSessionState.AudioSessionStateActive) //shouldn't be necessary but for some reason is 
-                        {
-                            continue;
-                        }
-                        break;
-                    }
-                }
-                if (session != null)
-                {
-                    if (step != 0)
-                    {
-                        AudioSessionService.StepSessionVolume(session, step);
-                    }
-                    else
-                    {
-                        AudioSessionService.MuteUnmuteSessionVolume(session);
-                    }
-                }
-
-            }
-            if (e.Encoder == 3)
-            {
-
-                AudioSessionControl2? session = null;
-                if (foregroundCheckBox.Checked)
-                {
-                    if (mAudioSessions.ContainsKey(currentActiveProcess))
-                    {
-                        if (mAudioSessions[currentActiveProcess].State == AudioSessionState.AudioSessionStateActive) //actually may be a good idea here so we dont try to change audio on an inactive state
-                        {
-                            session = mAudioSessions[currentActiveProcess];
-                        }
-                    }
-                }
-                else
-                {
-                    foreach (var processName in processGroup2)
-                    {
-                        if (mAudioSessions.ContainsKey(processName))
-                        {
-                            session = mAudioSessions[processName];
-                            if (session.State != AudioSessionState.AudioSessionStateActive) //shouldn't be necessary but for some reason is 
-                            {
-                                continue;
-                            }
-                            break;
-                        }
-                    }
-                }
-
-                if (session != null)
-                {
-                    if (step != 0)
-                    {
-                        AudioSessionService.StepSessionVolume(session, step);
-
-                    }
-                    else
-                    {
-                        AudioSessionService.MuteUnmuteSessionVolume(session);
-                    }
-                }
-
-            }
+            ProcessEncoder(e.Encoder, step);
             isProcessingData = false;
+        }
+        private List<AudioSessionControl2>? GetActiveSessionList(List<string> processGroup, bool foreGround)
+        {
+            if (foreGround == true)
+            {
+                if (mAudioSessions.ContainsKey(currentActiveProcess))
+                {
+                    foreach (var aSession in mAudioSessions[currentActiveProcess])
+                    {
+                        if (aSession.State == AudioSessionState.AudioSessionStateActive)
+                        {
+                            return mAudioSessions[currentActiveProcess];
+
+                        }
+                    }
+                }
+            }
+
+            foreach (var processName in processGroup)
+            {
+                if (mAudioSessions.ContainsKey(processName))
+                {
+                    foreach (var session in mAudioSessions[processName])
+                    {
+                        if (session.State == AudioSessionState.AudioSessionStateActive)
+                        {
+                            return mAudioSessions[processName];
+                        }
+                    }
+                }
+            }
+            return null;
+        }
+        private void ProcessEncoder(int encoder, float step)
+        {
+            List<AudioSessionControl2>? sessionList = null;
+            switch (encoder)
+            {
+                case 1:
+                    if (step != 0)
+                    {
+                        sessionService.StepMasterVolume(step);
+                    }
+                    else
+                    {
+                        sessionService.MuteUnmuteMasterVolume();
+                    }
+                    break;
+                case 2:
+                    sessionList = GetActiveSessionList(processGroup1, false);
+                    break;
+                case 3:
+                    if (foregroundCheckBox.Checked)
+                    {
+                        sessionList = GetActiveSessionList(processGroup2, false);
+                    }
+                    else
+                    {
+                        sessionList = GetActiveSessionList(processGroup2, true);
+                    }
+                    break;
+            }
+
+            if (sessionList != null)
+            {
+                foreach (var session in sessionList)
+                {
+                    if (step != 0)
+                    {
+                        AudioSessionService.StepSessionVolume(session, step);
+                        if (debugCheck.Checked)
+                        {
+                            debugRichTextBox.BeginInvoke(new Action(() =>
+                            {
+                                debugRichTextBox.AppendText($"Stepping volume for {session.DisplayName} exe: {AudioSessionService.GetProcess(session)?.ProcessName}{Environment.NewLine}");
+                            }));
+                        }
+                    }
+                    else
+                    {
+                        AudioSessionService.MuteUnmuteSessionVolume(session);
+                    }
+                }
+            }
         }
         private void MainForm_FormClosed(object sender, FormClosedEventArgs e)
         {
@@ -249,6 +245,12 @@ namespace PicoVolumeController
                 serialPortService.Dispose();
                 startButton.Text = "Start";
             }
+        }
+
+        private void button1_Click(object sender, EventArgs e)
+        {
+            debugRichTextBox.Clear();
+            GC.Collect();
         }
     }
 }
