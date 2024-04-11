@@ -30,49 +30,42 @@ namespace PicoVolumeController
         public MainForm()
         {
 
-            InitializeComponent();
-
-            this.Icon = new Icon(Path.Combine(Application.StartupPath, "window.ico"));
-
             windowTracker = new ForegroundWindowTracker();
             windowTracker.ForegroundProcessChanged += ForegroundProcessChanged;
             windowTracker.Start();
 
             sessionService = new AudioSessionService();
-            settingsManager = new SettingsManager("settings.json");
-            //definitely a better way of doing this but i cba
+            //there is definitely a better way of doing this but im the only one using it so i do not care
             try
             {
                 settingsManager = new SettingsManager("settings.json");
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                var result = MessageBox.Show("Could not load settings");
-                if (result == DialogResult.OK || result == DialogResult.None)
-                {
-                    Application.Exit();
-                }
+                MessageBox.Show("Could not load settings");
+                Environment.Exit(1);
             }
-            if (settingsManager.Settings.group1 == null || settingsManager.Settings.group1 == null)
+            if (settingsManager.Settings == null || settingsManager.Settings == null)
             {
-                var result = MessageBox.Show("Could not load settings");
-                if (result == DialogResult.OK || result == DialogResult.None)
-                {
-                    Application.Exit();
-                }
+                MessageBox.Show("Settings file is not in formatted correctly");
+                Environment.Exit(1);
             }
+            else
+            {
+                InitializeComponent();
+                this.Icon = new Icon(Path.Combine(Application.StartupPath, "window.ico"));
+                processGroup1 = settingsManager.Settings.group1;
+                processGroup2 = settingsManager.Settings.group2;
 
-            processGroup1 = settingsManager.Settings.group1;
-            processGroup2 = settingsManager.Settings.group2;
+                processGroup1Box.DataSource = processGroup1;
+                processGroup2Box.DataSource = processGroup2;
 
-            processGroup1Box.DataSource = processGroup1;
-            processGroup2Box.DataSource = processGroup2;
+                mAudioSessions = sessionService.GetAudioSessions();
 
-            mAudioSessions = sessionService.GetAudioSessions();
-
-            CheckTimer.Interval = 500;
-            CheckTimer.Tick += CheckTimer_Tick;
-            CheckTimer.Start();
+                CheckTimer.Interval = 500;
+                CheckTimer.Tick += CheckTimer_Tick;
+                CheckTimer.Start();
+            }
         }
 
 
@@ -197,6 +190,17 @@ namespace PicoVolumeController
                     }
                 }
             }
+            else
+            {
+                if(debugCheck.Checked)
+                {
+                    debugRichTextBox.BeginInvoke(new Action(() =>
+                    {
+                        debugRichTextBox.AppendText($"Sessions was null{Environment.NewLine}");
+                    }));
+                }
+
+            }
         }
         private void MainForm_FormClosed(object sender, FormClosedEventArgs e)
         {
@@ -226,12 +230,23 @@ namespace PicoVolumeController
             var portName = comTextBox.Text.Trim();
             if (portName != null && !running)
             {
-                running = true;
-                if (!CheckTimer.Enabled)
-                    CheckTimer.Start();
-                serialPortService.Initialize(portName, 115200);
-                serialPortService.DataReceived += SerialPortService_DataReceived;
-                startButton.Text = "Stop";
+                try
+                {                    
+                    if (!CheckTimer.Enabled)
+                        CheckTimer.Start();
+                    serialPortService.Initialize(portName, 115200);
+                    serialPortService.DataReceived += SerialPortService_DataReceived;
+                    startButton.Text = "Stop";
+                    running = true;
+                }
+                catch(FileNotFoundException)
+                {
+                    MessageBox.Show($"{portName} not found");
+                }
+                catch(UnauthorizedAccessException)
+                {
+                    MessageBox.Show($"{portName} is busy");
+                }
             }
             else if (running)
             {
