@@ -1,4 +1,4 @@
-﻿using PicoVolumeController.Models;
+using PicoVolumeController.Models;
 using System.IO.Ports;
 
 namespace PicoVolumeController.Services
@@ -27,7 +27,6 @@ namespace PicoVolumeController.Services
             {
                 OnDataReceived(serialData);
             }
-
         }
 
         private static Models.SerialData? ProcessData(string data)
@@ -58,7 +57,8 @@ namespace PicoVolumeController.Services
                     action = EncoderAction.Mute;
                     break;
             }
-
+            if (encoder == 0)
+                return null;
 
             return new Models.SerialData(encoder, action);
         }
@@ -83,3 +83,4 @@ namespace PicoVolumeController.Services
         }
     }
 }
+
