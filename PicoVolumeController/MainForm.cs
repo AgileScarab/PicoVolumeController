@@ -3,6 +3,7 @@ using PicoVolumeController.Models;
 using PicoVolumeController.Services;
 using PicoVolumeController.Utils;
 using PicoVolumeController.Win32;
+using System.CodeDom;
 using System.Linq;
 using System.Windows.Forms;
 
@@ -23,7 +24,6 @@ namespace PicoVolumeController
 
         private readonly SettingsManager settingsManager;
 
-        private readonly System.Windows.Forms.Timer CheckTimer = new();
 
         private bool isProcessingData = false;
         private bool running = false;
@@ -35,6 +35,7 @@ namespace PicoVolumeController
             windowTracker.Start();
 
             sessionService = new AudioSessionService();
+            sessionService.SessionsUpdated += SessionsUpdated;
             //there is definitely a better way of doing this but im the only one using it so i do not care
             try
             {
@@ -61,27 +62,21 @@ namespace PicoVolumeController
                 processGroup2Box.DataSource = processGroup2;
 
                 mAudioSessions = sessionService.GetAudioSessions();
-
-                CheckTimer.Interval = 500;
-                CheckTimer.Tick += CheckTimer_Tick;
-                CheckTimer.Start();
             }
         }
 
-
         private void Form1_Load(object sender, EventArgs e)
         {
-            comTextBox.Text = settingsManager.Settings.port;
-        }
-
-        private void CheckTimer_Tick(object? sender, EventArgs e)
-        {
-            mAudioSessions = sessionService.GetAudioSessions();
+            comTextBox.Text = settingsManager?.Settings?.port;
         }
 
         private void ForegroundProcessChanged(object sender, string e)
         {
             currentActiveProcess = e;
+        }
+        private void SessionsUpdated(object sender, AudioSessionEventArgs e)
+        {
+            mAudioSessions = e.Sessions;
         }
 
         private void SerialPortService_DataReceived(object? sender, SerialData e)
@@ -153,7 +148,8 @@ namespace PicoVolumeController
                     {
                         sessionService.MuteUnmuteMasterVolume();
                     }
-                    break;
+                    return; //cs8604
+#pragma warning disable CS8604
                 case 2:
                     sessionList = GetActiveSessionList(processGroup1, false);
                     break;
@@ -167,6 +163,7 @@ namespace PicoVolumeController
                         sessionList = GetActiveSessionList(processGroup2, false);
                     }
                     break;
+#pragma warning restore CS8604
             }
 
             if (sessionList != null)
@@ -204,7 +201,6 @@ namespace PicoVolumeController
         }
         private void MainForm_FormClosed(object sender, FormClosedEventArgs e)
         {
-            CheckTimer.Stop();
             windowTracker.Stop();
         }
 
@@ -231,9 +227,7 @@ namespace PicoVolumeController
             if (portName != null && !running)
             {
                 try
-                {                    
-                    if (!CheckTimer.Enabled)
-                        CheckTimer.Start();
+                {                   
                     serialPortService.Initialize(portName, 115200);
                     serialPortService.DataReceived += SerialPortService_DataReceived;
                     startButton.Text = "Stop";
@@ -251,8 +245,6 @@ namespace PicoVolumeController
             else if (running)
             {
                 running = false;
-                if (CheckTimer.Enabled)
-                    CheckTimer.Stop();
                 serialPortService.DataReceived -= SerialPortService_DataReceived;
                 serialPortService.Close();
                 serialPortService.Dispose();
@@ -263,6 +255,7 @@ namespace PicoVolumeController
         private void button1_Click(object sender, EventArgs e)
         {
             debugRichTextBox.Clear();
+            GC.Collect();
         }
     }
 }
