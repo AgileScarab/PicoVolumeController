@@ -4,11 +4,21 @@ using System.Diagnostics;
 
 namespace PicoVolumeController.Services
 {
+    public class AudioSessionEventArgs : EventArgs
+    {
+        public Dictionary<string, HashSet<AudioSessionControl2>> Sessions { get; }
+        public AudioSessionEventArgs(Dictionary<string, HashSet<AudioSessionControl2>> sessions)
+        {
+            Sessions = sessions;
+        }
+    }
     public class AudioSessionService
     {
         private readonly MMDeviceEnumerator _enumerator;
         private MMDeviceCollection devices;
         private Dictionary<string, HashSet<AudioSessionControl2>> sessions;
+        public event EventHandler<AudioSessionEventArgs> SessionsUpdated;
+
         public AudioSessionService()
         {
             _enumerator = new MMDeviceEnumerator(Guid.Empty);
@@ -17,6 +27,7 @@ namespace PicoVolumeController.Services
 
             foreach (var device in devices)
             {
+                
 #pragma warning disable CA1806
                 devices.Append(device);
 #pragma warning restore CA1806
@@ -38,12 +49,12 @@ namespace PicoVolumeController.Services
                     }
                 }
             }
+            InvokeSessionsUpdatedEvent();
         }
-
         private void HandleSessionStateChanged(object sender, AudioSessionState newState)
         {
             AudioSessionControl2 session = (AudioSessionControl2)sender;
-            try
+            try //sessions may not be removed properly cause CoreAudio lacks session.ProcessName
             {
                 string processName = Process.GetProcessById((int)session.ProcessID).ProcessName;
                 if (string.IsNullOrEmpty(processName))
@@ -71,7 +82,7 @@ namespace PicoVolumeController.Services
                         break;
                 }
             }
-            catch
+            catch //maybe a foreach in here to forcecheck all the sessions for the changed session and remove it?
             {
                 foreach(var key in sessions.Keys)
                 {
@@ -84,6 +95,7 @@ namespace PicoVolumeController.Services
                     }
                 }
             }
+            InvokeSessionsUpdatedEvent();
         }
 
         private void HandleSessionCreated(object sender, IAudioSessionControl2 newSession)
@@ -105,9 +117,14 @@ namespace PicoVolumeController.Services
                     }
                     sessions[processName].Add(session);
                     session.OnStateChanged += HandleSessionStateChanged;
+                    InvokeSessionsUpdatedEvent();
                 }
             }
-
+            InvokeSessionsUpdatedEvent();
+        }
+        private void InvokeSessionsUpdatedEvent()
+        {
+            SessionsUpdated?.Invoke(this, new AudioSessionEventArgs(sessions));
         }
 
         public Dictionary<string, HashSet<AudioSessionControl2>> GetAudioSessions()
@@ -165,15 +182,15 @@ namespace PicoVolumeController.Services
 
         public void StepMasterVolume(float step)
         {
-            foreach (MMDevice device in devices)
-            {
-                if (device.AudioEndpointVolume != null)
-                {
-                    float currentVolume = device.AudioEndpointVolume.MasterVolumeLevelScalar * 100;
-                    float newVolume = Math.Max(0, Math.Min(100, currentVolume + step));
-                    device.AudioEndpointVolume.MasterVolumeLevelScalar = newVolume / 100;
-                }
+            var device = devices.First();
+            if (device.AudioEndpointVolume != null)
+            {   
+               float currentVolume = device.AudioEndpointVolume.MasterVolumeLevelScalar * 100;
+               float newVolume = Math.Max(0, Math.Min(100, currentVolume + step));
+               device.AudioEndpointVolume.MasterVolumeLevelScalar = newVolume / 100;
+               device.AudioEndpointVolume.Dispose();
             }
         }
     }
 }
+
